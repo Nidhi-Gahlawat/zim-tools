@@ -67,6 +67,7 @@ Options:
  -H --help            Displays Help
  -V --version         Displays software version
  -L --redirect_loop   Checks for the existence of redirect loops
+ -T --mime_type       Filename extension and MIME type coherence
  -W=<nb_thread> --threads=<nb_thread>  count of threads to utilize [default: 1]
 
 Examples:
@@ -177,6 +178,9 @@ int zimcheck(const Options& args)
         } else if (arg.first == "--redirect_loop" && arg.second.asBool()) {
             enabled_tests.enable(TestType::REDIRECT);
             no_args = false;
+        } else if (arg.first == "--mime_type" && arg.second.asBool()) {
+            enabled_tests.enable(TestType::MIME_TYPE);
+            no_args = false;
         } else if (arg.first == "--json") {
             json = arg.second.asBool();
         } else if (arg.first == "--threads") {
@@ -278,7 +282,8 @@ int zimcheck(const Options& args)
             if ( enabled_tests.isEnabled(TestType::URL_INTERNAL) ||
                  enabled_tests.isEnabled(TestType::URL_EXTERNAL) ||
                  enabled_tests.isEnabled(TestType::REDUNDANT) ||
-                 enabled_tests.isEnabled(TestType::EMPTY) )
+                 enabled_tests.isEnabled(TestType::EMPTY) ||
+                 enabled_tests.isEnabled(TestType::MIME_TYPE) )
               test_articles(archive, error, progress, options, thread_count);
 
             if ( enabled_tests.isEnabled(TestType::REDIRECT))

@@ -7,6 +7,7 @@
 #include <cassert>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <list>
 #include <sstream>
 #include <atomic>
@@ -37,6 +38,7 @@ std::unordered_map<TestType, std::pair<LogTag, std::string>> errormapping = {
     { TestType::URL_EXTERNAL,  {LogTag::ERROR, "External URL"}},
     { TestType::URL_EMPTY,     {LogTag::WARNING, "Empty link"}},
     { TestType::REDIRECT,      {LogTag::ERROR, "Redirect Loop"}},
+    { TestType::MIME_TYPE,     {LogTag::WARNING, "MIME type"}},
 };
 
 struct MsgInfo
@@ -46,18 +48,21 @@ struct MsgInfo
 };
 
 std::unordered_map<MsgId, MsgInfo> msgTable = {
-  { MsgId::CHECKSUM,         { TestType::CHECKSUM, "ZIM Archive Checksum in archive: {{&archive_checksum}}\n" } },
-  { MsgId::MAIN_PAGE,        { TestType::MAIN_PAGE, "Main Page Index stored in Archive Header: {{&main_page_index}}" } },
-  { MsgId::EMPTY_ENTRY,      { TestType::EMPTY, "Entry {{&path}} is empty" } },
-  { MsgId::OUTOFBOUNDS_LINK, { TestType::URL_INTERNAL, "{{&link}} is out of bounds. Article: {{&path}}" } },
-  { MsgId::ABSPATH_LINK,     { TestType::URL_INTERNAL, "{{&link}} is an absolute path link. Article: {{&path}}" } },
-  { MsgId::DANGLING_LINKS,   { TestType::URL_INTERNAL, "Dangling link(s) in article '{{&path}}':\n{{#links}}  - '{{&value}}' (resolves to '{{&normalized_link}}')\n{{/links}}" } },
-  { MsgId::EXTERNAL_LINK,    { TestType::URL_EXTERNAL, "{{&link}} is an external dependence in article {{&path}}" } },
-  { MsgId::EMPTY_LINKS,      { TestType::URL_EMPTY, "Found {{&count}} empty links in article: {{&path}}" } },
-  { MsgId::REDUNDANT_ITEMS,  { TestType::REDUNDANT, "{{&path1}} and {{&path2}}" } },
-  { MsgId::METADATA,         { TestType::METADATA, "{{&error}}" } },
-  { MsgId::REDIRECT_LOOP,    { TestType::REDIRECT, "Redirect loop exists from entry {{&entry_path}}\n"  } },
-  { MsgId::MISSING_FAVICON,  { TestType::FAVICON, "Favicon is missing" } }
+    { MsgId::CHECKSUM,         { TestType::CHECKSUM, "ZIM Archive Checksum in archive: {{&archive_checksum}}\n" } },
+    { MsgId::MAIN_PAGE,        { TestType::MAIN_PAGE, "Main Page Index stored in Archive Header: {{&main_page_index}}" } },
+    { MsgId::EMPTY_ENTRY,      { TestType::EMPTY, "Entry {{&path}} is empty" } },
+    { MsgId::OUTOFBOUNDS_LINK, { TestType::URL_INTERNAL, "{{&link}} is out of bounds. Article: {{&path}}" } },
+    { MsgId::ABSPATH_LINK,     { TestType::URL_INTERNAL, "{{&link}} is an absolute path link. Article: {{&path}}" } },
+    { MsgId::DANGLING_LINKS,   { TestType::URL_INTERNAL, "Dangling link(s) in article '{{&path}}':\n{{#links}}  - '{{&value}}' (resolves to '{{&normalized_link}}')\n{{/links}}" } },
+    { MsgId::EXTERNAL_LINK,    { TestType::URL_EXTERNAL, "{{&link}} is an external dependence in article {{&path}}" } },
+    { MsgId::EMPTY_LINKS,      { TestType::URL_EMPTY, "Found {{&count}} empty links in article: {{&path}}" } },
+    { MsgId::REDUNDANT_ITEMS,  { TestType::REDUNDANT, "{{&path1}} and {{&path2}}" } },
+    { MsgId::METADATA,         { TestType::METADATA, "{{&error}}" } },
+    { MsgId::REDIRECT_LOOP,    { TestType::REDIRECT, "Redirect loop exists from entry {{&entry_path}}\n"  } },
+    { MsgId::MISSING_FAVICON,  { TestType::FAVICON, "Favicon is missing" } },
+    { MsgId::MIME_TYPE_MISMATCH,
+        { TestType::MIME_TYPE,
+            "Entry {{&path}} has MIME type {{&mime_type}}, which is incompatible with the .{{&extension}} extension" } }
 };
 
 using kainjow::mustache::mustache;
@@ -83,6 +88,7 @@ const char* toStr(TestType tt) {
     case TestType::URL_EXTERNAL: return "url_external";
     case TestType::URL_EMPTY:    return "url_empty";
     case TestType::REDIRECT:     return "redirect";
+    case TestType::MIME_TYPE:    return "mime_type";
     default:  throw std::logic_error("Invalid TestType");
   };
 }
@@ -96,6 +102,62 @@ SortedMsgParams sortedMsgParams(const MsgParams& msgParams)
 bool areAliases(const zim::Item& i1, const zim::Item& i2)
 {
     return i1.getClusterIndex() == i2.getClusterIndex() && i1.getBlobIndex() == i2.getBlobIndex();
+}
+
+bool isMimeTypeCompatible(std::string_view extension,
+                          std::string_view mimeType)
+{
+    static const std::unordered_map<std::string,
+                                    std::unordered_set<std::string>>
+        compatibleMimeTypes = {
+            {"html", {"text/html"}},
+            {"htm", {"text/html"}},
+            {"png", {"image/png"}},
+            {"tiff", {"image/tiff"}},
+            {"tif", {"image/tiff"}},
+            {"jpeg", {"image/jpeg"}},
+            {"jpg", {"image/jpeg"}},
+            {"gif", {"image/gif"}},
+            {"svg", {"image/svg+xml"}},
+            {"txt", {"text/plain"}},
+            {"xml", {"application/xml", "text/xml"}},
+            {"epub", {"application/epub+zip"}},
+            {"pdf", {"application/pdf"}},
+            {"ogg", {"application/ogg", "audio/ogg", "video/ogg"}},
+            {"ogv", {"video/ogg"}},
+            {"js", {"application/javascript", "text/javascript"}},
+            {"json", {"application/json"}},
+            {"css", {"text/css"}},
+            {"otf", {"font/otf"}},
+            {"sfnt", {"font/sfnt"}},
+            {"eot", {"application/vnd.ms-fontobject"}},
+            {"ttf", {"font/ttf"}},
+            {"collection", {"font/collection"}},
+            {"woff", {"font/woff"}},
+            {"woff2", {"font/woff2"}},
+            {"vtt", {"text/vtt"}},
+            {"webm", {"video/webm"}},
+            {"webp", {"image/webp"}},
+            {"mp4", {"video/mp4"}},
+            {"doc", {"application/msword"}},
+            {"docx", {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}},
+            {"ppt", {"application/vnd.ms-powerpoint"}},
+            {"odt", {"application/vnd.oasis.opendocument.text"}},
+            {"odp", {"application/vnd.oasis.opendocument.presentation"}},
+            {"zip", {"application/zip"}},
+            {"wasm", {"application/wasm"}}
+        };
+
+    const auto knownExtension =
+        compatibleMimeTypes.find(asciitolower(std::string(extension)));
+    if (knownExtension == compatibleMimeTypes.end()) {
+        return true;
+    }
+
+    const auto parameterStart = mimeType.find(';');
+    const auto baseMimeType =
+        asciitolower(std::string(mimeType.substr(0, parameterStart)));
+    return knownExtension->second.count(baseMimeType) != 0;
 }
 
 } // unnamed namespace
@@ -289,6 +351,20 @@ void test_mainpage(const zim::Archive& archive, ErrorLogger& reporter) {
     }
 }
 
+void test_mime_type(const std::string& path, const std::string& mimeType,
+                    ErrorLogger& reporter)
+{
+    const auto extension = getFileExtension(path);
+    if (extension.empty() || isMimeTypeCompatible(extension, mimeType)) {
+        return;
+    }
+
+    reporter.addMsg(MsgId::MIME_TYPE_MISMATCH,
+                    {{"path", path},
+                     {"mime_type", mimeType},
+                     {"extension", extension}});
+}
+
 namespace
 {
 
@@ -361,6 +437,10 @@ void ArticleChecker::check(zim::Entry entry)
 
 void ArticleChecker::check_item(const zim::Item& item)
 {
+    if (options.enabledTests.isEnabled(TestType::MIME_TYPE)) {
+        test_mime_type(item.getPath(), item.getMimetype(), reporter);
+    }
+
     if (item.getSize() == 0) {
         if (options.enabledTests.isEnabled(TestType::EMPTY)) {
             const auto path = item.getPath();
