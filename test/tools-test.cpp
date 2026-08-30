@@ -20,6 +20,25 @@ TEST(CommonTools, base64_encode)
   EXPECT_EQ(txt, "/wB6");
 }
 
+TEST(CommonTools, preferredMimeTypeForExtension)
+{
+  EXPECT_EQ(getPreferredMimeTypeForExtension("js"), "application/javascript");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("ODP"),
+            "application/vnd.oasis.opendocument.presentation");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("unknown"), "");
+}
+
+TEST(CommonTools, mimeTypeCompatibleWithExtension)
+{
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("JPEG", "IMAGE/JPEG"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("html", "text/html;charset=utf-8"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("js", "text/javascript"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("xml", "application/xml"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("ogg", "video/ogg"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("unknown", "application/octet-stream"));
+  EXPECT_FALSE(isMimeTypeCompatibleWithExtension("jpg", "image/png"));
+}
+
 TEST(CommonTools, decodeUrl)
 {
   std::string src = "%00";

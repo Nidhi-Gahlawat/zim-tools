@@ -7,7 +7,6 @@
 #include <cassert>
 #include <map>
 #include <unordered_map>
-#include <unordered_set>
 #include <list>
 #include <sstream>
 #include <atomic>
@@ -102,62 +101,6 @@ SortedMsgParams sortedMsgParams(const MsgParams& msgParams)
 bool areAliases(const zim::Item& i1, const zim::Item& i2)
 {
     return i1.getClusterIndex() == i2.getClusterIndex() && i1.getBlobIndex() == i2.getBlobIndex();
-}
-
-bool isMimeTypeCompatible(std::string_view extension,
-                          std::string_view mimeType)
-{
-    static const std::unordered_map<std::string,
-                                    std::unordered_set<std::string>>
-        compatibleMimeTypes = {
-            {"html", {"text/html"}},
-            {"htm", {"text/html"}},
-            {"png", {"image/png"}},
-            {"tiff", {"image/tiff"}},
-            {"tif", {"image/tiff"}},
-            {"jpeg", {"image/jpeg"}},
-            {"jpg", {"image/jpeg"}},
-            {"gif", {"image/gif"}},
-            {"svg", {"image/svg+xml"}},
-            {"txt", {"text/plain"}},
-            {"xml", {"application/xml", "text/xml"}},
-            {"epub", {"application/epub+zip"}},
-            {"pdf", {"application/pdf"}},
-            {"ogg", {"application/ogg", "audio/ogg", "video/ogg"}},
-            {"ogv", {"video/ogg"}},
-            {"js", {"application/javascript", "text/javascript"}},
-            {"json", {"application/json"}},
-            {"css", {"text/css"}},
-            {"otf", {"font/otf"}},
-            {"sfnt", {"font/sfnt"}},
-            {"eot", {"application/vnd.ms-fontobject"}},
-            {"ttf", {"font/ttf"}},
-            {"collection", {"font/collection"}},
-            {"woff", {"font/woff"}},
-            {"woff2", {"font/woff2"}},
-            {"vtt", {"text/vtt"}},
-            {"webm", {"video/webm"}},
-            {"webp", {"image/webp"}},
-            {"mp4", {"video/mp4"}},
-            {"doc", {"application/msword"}},
-            {"docx", {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}},
-            {"ppt", {"application/vnd.ms-powerpoint"}},
-            {"odt", {"application/vnd.oasis.opendocument.text"}},
-            {"odp", {"application/vnd.oasis.opendocument.presentation"}},
-            {"zip", {"application/zip"}},
-            {"wasm", {"application/wasm"}}
-        };
-
-    const auto knownExtension =
-        compatibleMimeTypes.find(asciitolower(std::string(extension)));
-    if (knownExtension == compatibleMimeTypes.end()) {
-        return true;
-    }
-
-    const auto parameterStart = mimeType.find(';');
-    const auto baseMimeType =
-        asciitolower(std::string(mimeType.substr(0, parameterStart)));
-    return knownExtension->second.count(baseMimeType) != 0;
 }
 
 } // unnamed namespace
@@ -355,7 +298,8 @@ void test_mime_type(const std::string& path, const std::string& mimeType,
                     ErrorLogger& reporter)
 {
     const auto extension = getFileExtension(path);
-    if (extension.empty() || isMimeTypeCompatible(extension, mimeType)) {
+    if (extension.empty()
+        || isMimeTypeCompatibleWithExtension(extension, mimeType)) {
         return;
     }
 
