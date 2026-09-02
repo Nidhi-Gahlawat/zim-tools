@@ -16,10 +16,12 @@ Maximum size of each part. SIZE must be a positive integer, optionally followed
 by a decimal unit (KB, MB, GB, TB, PB, or EB) or a binary unit (KiB, MiB, GiB,
 TiB, PiB, or EiB). Units are case-insensitive. A value without a unit is
 interpreted as bytes. Whitespace around SIZE and before its unit is ignored.
-SIZE must be smaller than the input file. The default is 2GiB.
+Unless \fB\-\-force\fR is used, SIZE must be smaller than the input file. The
+default is 2GiB.
 .TP
 \fB\-\-force\fR
-create ZIM parts even if it is impossible to have all part size smaller than requested
+Create ZIM parts even if SIZE cannot be respected or would not split the input
+file.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 print software version

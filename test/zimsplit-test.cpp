@@ -101,11 +101,13 @@ TEST(ZimSplitSize, RejectsOverflow)
                            TOO_LARGE_PART_SIZE_ERROR);
 }
 
-TEST(ZimSplitSize, ValidatesPartSizeAgainstArchive)
+TEST(ZimSplitSize, ValidatesPartSizeAgainstArchiveUnlessForced)
 {
-  EXPECT_NO_THROW(validatePartSize(99, 100));
-  EXPECT_INVALID_ARG_ERROR(validatePartSize(100, 100),
+  EXPECT_NO_THROW(validatePartSize(99, 100, false));
+  EXPECT_INVALID_ARG_ERROR(validatePartSize(100, 100, false),
                            TOO_LARGE_PART_SIZE_ERROR);
-  EXPECT_INVALID_ARG_ERROR(validatePartSize(101, 100),
+  EXPECT_INVALID_ARG_ERROR(validatePartSize(101, 100, false),
                            TOO_LARGE_PART_SIZE_ERROR);
+  EXPECT_NO_THROW(validatePartSize(100, 100, true));
+  EXPECT_NO_THROW(validatePartSize(101, 100, true));
 }

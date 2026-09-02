@@ -49,7 +49,10 @@ class ZimSplitter
     char* batch_buffer;
 
   public:
-    ZimSplitter(const std::string& fname, const std::string& out_prefix, zim::size_type maxPartSize)
+    ZimSplitter(const std::string& fname,
+                const std::string& out_prefix,
+                zim::size_type maxPartSize,
+                bool force)
       : archive(fname),
         prefix(out_prefix),
         maxPartSize(maxPartSize),
@@ -58,7 +61,7 @@ class ZimSplitter
         ifile(fname, std::ios::binary),
         currentPartSize(0)
       {
-        validatePartSize(maxPartSize, archive.getFilesize());
+        validatePartSize(maxPartSize, archive.getFilesize(), force);
         batch_buffer = new char[BUFFER_SIZE];
     }
 
@@ -173,8 +176,10 @@ Options:
     --size=SIZE         Maximum part size in bytes, or with a decimal unit (KB, MB, ...)
                         or binary unit (KiB, MiB, ...). Units are case-insensitive.
                         Whitespace around SIZE and before its unit is ignored.
-                        SIZE must be smaller than the input file. Default: 2GiB
-    --force             Create zim parts even if it is impossible to have all part size smaller than requested
+                        Unless --force is used, SIZE must be smaller than the input file.
+                        Default: 2GiB
+    --force             Create ZIM parts even if SIZE cannot be respected
+                        or would not split the input file
     -h, --help          Show this help message
     --version           Show zimsplit version.
 )";
@@ -197,11 +202,12 @@ int main(int argc, char* argv[])
     zim::size_type size = DEFAULT_PART_SIZE;
     if (args["--size"])
         size = parseByteSize(args["--size"].asString());
+    const bool force = args["--force"].asBool();
 
     // initalize app
-    ZimSplitter app(args["<file>"].asString(), prefix, size);
+    ZimSplitter app(args["<file>"].asString(), prefix, size, force);
 
-    if (!args["--force"] && app.check()) {
+    if (!force && app.check()) {
         std::cout << "Creation of zim parts canceled because of previous errors." << std::endl;
         std::cout << "Use --force option to create zim parts anyway." << std::endl;
         return -1;

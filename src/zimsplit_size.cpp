@@ -108,9 +108,9 @@ uint64_t parseByteSize(std::string value)
   return size * multiplier;
 }
 
-void validatePartSize(uint64_t partSize, uint64_t archiveSize)
+void validatePartSize(uint64_t partSize, uint64_t archiveSize, bool force)
 {
-  if (partSize >= archiveSize) {
+  if (!force && partSize >= archiveSize) {
     throw std::invalid_argument(partSizeTooLargeError);
   }
 }
