@@ -23,6 +23,11 @@ TEST(CommonTools, base64_encode)
 TEST(CommonTools, preferredMimeTypeForExtension)
 {
   EXPECT_EQ(getPreferredMimeTypeForExtension("js"), "application/javascript");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("HTM"), "text/html");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("TIF"), "image/tiff");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("jFif"), "image/jpeg");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("svgz"), "image/svg+xml");
+  EXPECT_EQ(getPreferredMimeTypeForExtension("mp4v"), "video/mp4");
   EXPECT_EQ(getPreferredMimeTypeForExtension("ODP"),
             "application/vnd.oasis.opendocument.presentation");
   EXPECT_EQ(getPreferredMimeTypeForExtension("unknown"), "");
@@ -33,6 +38,7 @@ TEST(CommonTools, mimeTypeCompatibleWithExtension)
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("JPEG", "IMAGE/JPEG"));
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("html", "text/html;charset=utf-8"));
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("js", "text/javascript"));
+  EXPECT_TRUE(isMimeTypeCompatibleWithExtension("js", "text/x-javascript"));
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("xml", "application/xml"));
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("ogg", "video/ogg"));
   EXPECT_TRUE(isMimeTypeCompatibleWithExtension("unknown", "application/octet-stream"));
