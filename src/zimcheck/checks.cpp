@@ -14,6 +14,7 @@
 #include <mutex>
 #include <thread>
 #include <queue>
+#include <optional>
 #include <zim/archive.h>
 #include <zim/item.h>
 
@@ -37,13 +38,14 @@ std::unordered_map<TestType, std::pair<LogTag, std::string>> errormapping = {
     { TestType::URL_EXTERNAL,  {LogTag::ERROR, "External URL"}},
     { TestType::URL_EMPTY,     {LogTag::WARNING, "Empty link"}},
     { TestType::REDIRECT,      {LogTag::ERROR, "Redirect Loop"}},
-    { TestType::MIME_TYPE,     {LogTag::WARNING, "MIME type"}},
+    { TestType::MIME_TYPE,     {LogTag::ERROR, "MIME type"}},
 };
 
 struct MsgInfo
 {
   TestType check;
   std::string msgTemplate;
+    std::optional<LogTag> tag;
 };
 
 std::unordered_map<MsgId, MsgInfo> msgTable = {
@@ -61,7 +63,11 @@ std::unordered_map<MsgId, MsgInfo> msgTable = {
     { MsgId::MISSING_FAVICON,  { TestType::FAVICON, "Favicon is missing" } },
     { MsgId::MIME_TYPE_MISMATCH,
         { TestType::MIME_TYPE,
-            "Entry {{&path}} has MIME type {{&mime_type}}, which is incompatible with the .{{&extension}} extension" } }
+            "Entry {{&path}} has MIME type {{&mime_type}}, which is incompatible with the .{{&extension}} extension" } },
+    { MsgId::MIME_TYPE_UNKNOWN,
+        { TestType::MIME_TYPE,
+            "Entry {{&path}} has undocumented MIME type {{&mime_type}} or extension .{{&extension}}",
+          LogTag::WARNING } }
 };
 
 using kainjow::mustache::mustache;
@@ -198,13 +204,17 @@ void ErrorLogger::addMsg(MsgId msgid, const MsgParams& msgParams)
 {
   std::lock_guard<std::mutex> lock(this->msgMutex);
   const MsgInfo& m = msgTable.at(msgid);
-  setTestResult(m.check, false);
+    const auto tag = m.tag.value_or(errormapping.at(m.check).first);
+    if (tag == LogTag::ERROR) {
+        setTestResult(m.check, false);
+    }
 
   if (jsonOutputStream.enabled()) {
      jsonOutput({msgid, msgParams});
   } else {
      auto &p = errormapping.at(m.check);
-     std::cout << "[" + tagToStr.at(p.first) + "] " << p.second << ": " << expand({msgid, msgParams}) << std::endl;
+    std::cout << "[" + tagToStr.at(tag) + "] " << p.second << ": "
+            << expand({msgid, msgParams}) << std::endl;
   }
 }
 
@@ -219,7 +229,8 @@ void ErrorLogger::jsonOutput(const MsgIdWithParams& msg) const {
   const MsgInfo& m = msgTable.at(msg.msgId);
   jsonOutputStream << JSON::startObject;
   jsonOutputStream << JSON::property("check", m.check);
-  jsonOutputStream << JSON::property("level", tagToStr.at(errormapping.at(m.check).first));
+    jsonOutputStream << JSON::property(
+            "level", tagToStr.at(m.tag.value_or(errormapping.at(m.check).first)));
   jsonOutputStream << JSON::property("message", expand(msg));
 
   for ( const auto& kv : sortedMsgParams(msg.msgParams) ) {
@@ -298,8 +309,19 @@ void test_mime_type(const std::string& path, const std::string& mimeType,
                     ErrorLogger& reporter)
 {
     const auto extension = getFileExtension(path);
-    if (extension.empty()
-        || isMimeTypeCompatibleWithExtension(extension, mimeType)) {
+    if (extension.empty()) {
+        return;
+    }
+
+    if (!isMimeTypeExtensionKnown(extension) || !isMimeTypeKnown(mimeType)) {
+        reporter.addMsg(MsgId::MIME_TYPE_UNKNOWN,
+                        {{"path", path},
+                         {"mime_type", mimeType},
+                         {"extension", extension}});
+        return;
+    }
+
+    if (isMimeTypeCompatibleWithExtension(extension, mimeType)) {
         return;
     }
 

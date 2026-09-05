@@ -70,7 +70,8 @@ enum class MsgId
   REDUNDANT_ITEMS,
   REDIRECT_LOOP,
   MISSING_FAVICON,
-  MIME_TYPE_MISMATCH
+  MIME_TYPE_MISMATCH,
+  MIME_TYPE_UNKNOWN
 };
 
 using MsgParams = kainjow::mustache::object;

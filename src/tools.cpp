@@ -153,6 +153,27 @@ std::string getPreferredMimeTypeForExtension(std::string_view extension)
   return "";
 }
 
+bool isMimeTypeExtensionKnown(std::string_view extension)
+{
+  return !getPreferredMimeTypeForExtension(extension).empty();
+}
+
+bool isMimeTypeKnown(std::string_view mimeType)
+{
+  const auto parameterStart = mimeType.find(';');
+  const auto baseMimeType =
+    asciitolower(std::string(mimeType.substr(0, parameterStart)));
+  for (const auto& mapping : mimeTypeMappings) {
+    if (baseMimeType == mapping.mimeType
+        || std::find(mapping.alternatives.begin(), mapping.alternatives.end(),
+                     baseMimeType)
+               != mapping.alternatives.end()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool isMimeTypeCompatibleWithExtension(std::string_view extension,
                                        std::string_view mimeType)
 {

@@ -183,6 +183,8 @@ bool fileExists(const std::string& path);
 bool isDirectory(const std::string &path);
 std::string getFileExtension(std::string_view path);
 std::string getPreferredMimeTypeForExtension(std::string_view extension);
+bool isMimeTypeExtensionKnown(std::string_view extension);
+bool isMimeTypeKnown(std::string_view mimeType);
 bool isMimeTypeCompatibleWithExtension(std::string_view extension,
                                        std::string_view mimeType);
 

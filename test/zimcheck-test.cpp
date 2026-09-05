@@ -447,8 +447,6 @@ TEST(zimfilechecks, mime_type_compatible)
     test_mime_type("video.ogg", "video/ogg", logger);
     test_mime_type("slides.odp", "application/vnd.oasis.opendocument.presentation", logger);
     test_mime_type("README", "text/plain", logger);
-    test_mime_type("data.unknown", "application/octet-stream", logger);
-
     EXPECT_TRUE(std::string(output).empty());
     EXPECT_TRUE(logger.overallStatus());
 }
@@ -461,9 +459,9 @@ TEST(zimfilechecks, mime_type_mismatch)
     test_mime_type("photo.jpg", "image/png", logger);
 
     EXPECT_EQ(std::string(output),
-          "[WARNING] MIME type: Entry photo.jpg has MIME type image/png, "
+          "[ERROR] MIME type: Entry photo.jpg has MIME type image/png, "
           "which is incompatible with the .jpg extension\n");
-    EXPECT_TRUE(logger.overallStatus());
+    EXPECT_FALSE(logger.overallStatus());
 }
 
 TEST(zimfilechecks, mime_type_json_mismatch)
@@ -477,19 +475,45 @@ TEST(zimfilechecks, mime_type_json_mismatch)
     }
 
     EXPECT_EQ(std::string(output),
-      "{"                                                               "\n"
-      "  \"logs\" : ["                                                 "\n"
-      "    {"                                                           "\n"
-      "      \"check\" : \"mime_type\","                              "\n"
-      "      \"level\" : \"WARNING\","                                "\n"
-      "      \"message\" : \"Entry photo.jpg has MIME type image/png, which is incompatible with the .jpg extension\"," "\n"
-      "      \"extension\" : \"jpg\","                                 "\n"
-      "      \"mime_type\" : \"image/png\","                           "\n"
-      "      \"path\" : \"photo.jpg\""                                 "\n"
-      "    }"                                                           "\n"
-      "  ]"                                                             "\n"
-      "}"                                                               "\n"
-    );
+        "{"                                                               "\n"
+        "  \"logs\" : ["                                                 "\n"
+        "    {"                                                           "\n"
+        "      \"check\" : \"mime_type\","                              "\n"
+        "      \"level\" : \"ERROR\","                                  "\n"
+        "      \"message\" : \"Entry photo.jpg has MIME type image/png, which is incompatible with the .jpg extension\"," "\n"
+        "      \"extension\" : \"jpg\","                                 "\n"
+        "      \"mime_type\" : \"image/png\","                           "\n"
+        "      \"path\" : \"photo.jpg\""                                 "\n"
+        "    }"                                                           "\n"
+        "  ]"                                                             "\n"
+        "}"                                                               "\n"
+      );
+}
+
+TEST(zimfilechecks, mime_type_unknown_is_warning)
+{
+  CapturedStdout output;
+  ErrorLogger logger;
+
+  test_mime_type("data.unknown", "application/octet-stream", logger);
+
+  EXPECT_EQ(std::string(output),
+      "[WARNING] MIME type: Entry data.unknown has undocumented MIME type "
+      "application/octet-stream or extension .unknown\n");
+  EXPECT_TRUE(logger.overallStatus());
+}
+
+TEST(zimfilechecks, mime_type_unknown_mime_is_warning)
+{
+  CapturedStdout output;
+  ErrorLogger logger;
+
+  test_mime_type("data.jpg", "application/octet-stream", logger);
+
+  EXPECT_EQ(std::string(output),
+      "[WARNING] MIME type: Entry data.jpg has undocumented MIME type "
+      "application/octet-stream or extension .jpg\n");
+  EXPECT_TRUE(logger.overallStatus());
 }
 
 const std::string ALL_CHECKS_OUTPUT_ON_GOODZIMFILE(
