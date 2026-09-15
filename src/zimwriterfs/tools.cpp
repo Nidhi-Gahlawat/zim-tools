@@ -27,49 +27,9 @@
 #include <iostream>
 #include <iomanip>
 #include <regex>
-#include <map>
 
 #include <zlib.h>
 #include <magic.h>
-
-static const std::map<std::string, std::string> extMimeTypes = {
-    {"html",       "text/html"},
-    {"htm",        "text/html"},
-    {"png",        "image/png"},
-    {"tiff",       "image/tiff"},
-    {"tif",        "image/tiff"},
-    {"jpeg",       "image/jpeg"},
-    {"jpg",        "image/jpeg"},
-    {"gif",        "image/gif"},
-    {"svg",        "image/svg+xml"},
-    {"txt",        "text/plain"},
-    {"xml",        "text/xml"},
-    {"epub",       "application/epub+zip"},
-    {"pdf",        "application/pdf"},
-    {"ogg",        "audio/ogg"},
-    {"ogv",        "video/ogg"},
-    {"js",         "application/javascript"},
-    {"json",       "application/json"},
-    {"css",        "text/css"},
-    {"otf",        "font/otf"},
-    {"sfnt",       "font/sfnt"},
-    {"eot",        "application/vnd.ms-fontobject"},
-    {"ttf",        "font/ttf"},
-    {"collection", "font/collection"},
-    {"woff",       "font/woff"},
-    {"woff2",      "font/woff2"},
-    {"vtt",        "text/vtt"},
-    {"webm",       "video/webm"},
-    {"webp",       "image/webp"},
-    {"mp4",        "video/mp4"},
-    {"doc",        "application/msword"},
-    {"docx",       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-    {"ppt",        "application/vnd.ms-powerpoint"},
-    {"odt",        "application/vnd.oasis.opendocument.text"},
-    {"odp",        "application/vnd.oasis.opendocument.text"},
-    {"zip",        "application/zip"},
-    {"wasm",       "application/wasm"}
-};
 
 static std::map<std::string, std::string> fileMimeTypes;
 
@@ -118,8 +78,7 @@ inline std::string inflateString(const std::string& str)
 
 std::string getMimeTypeFromExtension(const std::string& extension)
 {
-  const auto it = extMimeTypes.find(asciitolower(extension));
-  return it != extMimeTypes.end() ?  it->second : "";
+  return getPreferredMimeTypeForExtension(extension);
 }
 
 inline bool seemsToBeHtml(const std::string& path)
