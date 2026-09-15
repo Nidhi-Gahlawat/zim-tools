@@ -33,7 +33,6 @@
 #include <algorithm>
 #include <regex>
 #include <array>
-#include <map>
 #include <unicode/brkiter.h>
 #include <unicode/utypes.h>
 #include <unicode/unistr.h>
@@ -78,6 +77,13 @@ std::string getFileExtension(std::string_view path) {
     if (posOfLastDot == std::string_view::npos) {
         return "";
     }
+    const auto posOfLastSeparator = path.find_last_of("/\\");
+    const auto posOfFilenameStart = posOfLastSeparator == std::string_view::npos
+                                  ? 0
+                                  : posOfLastSeparator + 1;
+    if (posOfLastDot == posOfFilenameStart) {
+        return "";
+    }
     const auto partAfterLastDot = path.substr(posOfLastDot + 1);
     return partAfterLastDot.find_first_of("/\\") == std::string_view::npos
          ? std::string(partAfterLastDot)
@@ -87,51 +93,118 @@ std::string getFileExtension(std::string_view path) {
 namespace
 {
 
-const std::map<std::string, std::string> extMimeTypes = {
-  {"html",       "text/html"},
-  {"htm",        "text/html"},
-  {"png",        "image/png"},
-  {"tiff",       "image/tiff"},
-  {"tif",        "image/tiff"},
-  {"jpeg",       "image/jpeg"},
-  {"jpg",        "image/jpeg"},
-  {"gif",        "image/gif"},
-  {"svg",        "image/svg+xml"},
-  {"txt",        "text/plain"},
-  {"xml",        "text/xml"},
-  {"epub",       "application/epub+zip"},
-  {"pdf",        "application/pdf"},
-  {"ogg",        "audio/ogg"},
-  {"ogv",        "video/ogg"},
-  {"js",         "application/javascript"},
-  {"json",       "application/json"},
-  {"css",        "text/css"},
-  {"otf",        "font/otf"},
-  {"sfnt",       "font/sfnt"},
-  {"eot",        "application/vnd.ms-fontobject"},
-  {"ttf",        "font/ttf"},
-  {"collection", "font/collection"},
-  {"woff",       "font/woff"},
-  {"woff2",      "font/woff2"},
-  {"vtt",        "text/vtt"},
-  {"webm",       "video/webm"},
-  {"webp",       "image/webp"},
-  {"mp4",        "video/mp4"},
-  {"doc",        "application/msword"},
-  {"docx",       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-  {"ppt",        "application/vnd.ms-powerpoint"},
-  {"odt",        "application/vnd.oasis.opendocument.text"},
-  {"odp",        "application/vnd.oasis.opendocument.text"},
-  {"zip",        "application/zip"},
-  {"wasm",       "application/wasm"}
+struct MimeTypeMapping
+{
+  // MIME type emitted by zimwriterfs for all extensions in this mapping.
+  std::string_view mimeType;
+  // Filename extensions conventionally associated with the MIME type.
+  std::vector<std::string_view> extensions;
+  // Valid legacy or alternative MIME types accepted by zimcheck.
+  std::vector<std::string_view> alternatives;
+};
+
+// Keeping preferred and alternative types separate lets the writer emit one
+// canonical value while the checker accepts compatible values found in archives.
+const std::vector<MimeTypeMapping> mimeTypeMappings = {
+  {"text/html", {"html", "htm"}, {}},
+  {"image/png", {"png"}, {}},
+  {"image/tiff", {"tiff", "tif"}, {}},
+  {"image/jpeg", {"jpe", "jpeg", "jpg", "pjpg", "jfif", "jfif-tbnl", "jif"},
+   {}},
+  {"image/gif", {"gif"}, {}},
+  {"image/svg+xml", {"svg", "svgz"}, {}},
+  {"text/plain", {"conf", "def", "diff", "in", "ksh", "list", "log", "pl", "text", "txt"},
+   {}},
+  {"text/xml", {"xml", "xpdl", "xsl"}, {"application/xml"}},
+  {"application/epub+zip", {"epub"}, {}},
+  {"application/pdf", {"pdf"}, {}},
+  {"audio/ogg", {"oga", "ogg", "spx"}, {"application/ogg", "video/ogg"}},
+  {"video/ogg", {"ogv"}, {}},
+  {"application/javascript", {"js"},
+   {"text/javascript", "application/ecmascript", "application/x-ecmascript",
+    "application/x-javascript", "text/ecmascript", "text/javascript1.0",
+    "text/javascript1.1", "text/javascript1.2", "text/javascript1.3",
+    "text/javascript1.4", "text/javascript1.5", "text/jscript",
+    "text/livescript", "text/x-ecmascript", "text/x-javascript"}},
+  {"application/json", {"json"}, {"text/json"}},
+  {"text/css", {"css"}, {}},
+  {"font/otf", {"otf"}, {}},
+  {"font/sfnt", {"sfnt"}, {}},
+  {"application/vnd.ms-fontobject", {"eot"}, {}},
+  {"font/ttf", {"ttf"}, {}},
+  {"font/collection", {"collection"}, {}},
+  {"font/woff", {"woff"}, {}},
+  {"font/woff2", {"woff2"}, {}},
+  {"text/vtt", {"vtt"}, {}},
+  {"video/webm", {"webm"}, {}},
+  {"image/webp", {"webp"}, {}},
+  {"video/mp4", {"mp4", "mp4v", "mpg4"}, {}},
+  {"application/msword", {"doc", "dot", "wiz"}, {}},
+  {"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+   {"docx"},
+   {}},
+  {"application/vnd.ms-powerpoint", {"pot", "ppa", "pps", "ppt", "pwz"}, {}},
+  {"application/vnd.oasis.opendocument.text", {"odt"}, {}},
+  {"application/vnd.oasis.opendocument.presentation", {"odp"}, {}},
+  {"application/zip", {"zip"}, {}},
+  {"application/wasm", {"wasm"}, {}}
 };
 
 } // unnamed namespace
 
 std::string getPreferredMimeTypeForExtension(std::string_view extension)
 {
-  const auto it = extMimeTypes.find(asciitolower(std::string(extension)));
-  return it == extMimeTypes.end() ? "" : it->second;
+  const auto normalizedExtension = asciitolower(std::string(extension));
+  for (const auto& mapping : mimeTypeMappings) {
+    if (std::find(mapping.extensions.begin(), mapping.extensions.end(),
+                  normalizedExtension)
+        != mapping.extensions.end()) {
+      return std::string(mapping.mimeType);
+    }
+  }
+  return "";
+}
+
+bool isMimeTypeExtensionKnown(std::string_view extension)
+{
+  return !getPreferredMimeTypeForExtension(extension).empty();
+}
+
+bool isMimeTypeKnown(std::string_view mimeType)
+{
+  const auto parameterStart = mimeType.find(';');
+  const auto baseMimeType =
+    asciitolower(std::string(mimeType.substr(0, parameterStart)));
+  for (const auto& mapping : mimeTypeMappings) {
+    if (baseMimeType == mapping.mimeType
+        || std::find(mapping.alternatives.begin(), mapping.alternatives.end(),
+                     baseMimeType)
+               != mapping.alternatives.end()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool isMimeTypeCompatibleWithExtension(std::string_view extension,
+                                       std::string_view mimeType)
+{
+  const auto normalizedExtension = asciitolower(std::string(extension));
+  const auto parameterStart = mimeType.find(';');
+  const auto baseMimeType =
+    asciitolower(std::string(mimeType.substr(0, parameterStart)));
+  for (const auto& mapping : mimeTypeMappings) {
+    if (std::find(mapping.extensions.begin(), mapping.extensions.end(),
+                  normalizedExtension)
+        == mapping.extensions.end()) {
+      continue;
+    }
+    return baseMimeType == mapping.mimeType
+        || std::find(mapping.alternatives.begin(), mapping.alternatives.end(),
+                     baseMimeType)
+               != mapping.alternatives.end();
+  }
+  return true;
 }
 
 /* base64 */
