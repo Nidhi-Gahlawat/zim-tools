@@ -77,6 +77,14 @@ std::string getFileExtension(std::string_view path) {
     if (posOfLastDot == std::string_view::npos) {
         return "";
     }
+    // Accept both path syntaxes regardless of the host running the tool.
+    const auto posOfLastSeparator = path.find_last_of("/\\");
+    const auto posOfFilenameStart = posOfLastSeparator == std::string_view::npos
+                                  ? 0
+                                  : posOfLastSeparator + 1;
+    if (posOfLastDot == posOfFilenameStart) {
+        return "";
+    }
     const auto partAfterLastDot = path.substr(posOfLastDot + 1);
     return partAfterLastDot.find_first_of("/\\") == std::string_view::npos
          ? std::string(partAfterLastDot)
