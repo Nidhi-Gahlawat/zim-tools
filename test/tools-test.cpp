@@ -29,6 +29,12 @@ TEST(CommonTools, preferredMimeTypeForExtension)
   EXPECT_EQ(getPreferredMimeTypeForExtension("unknown"), "");
 }
 
+TEST(CommonTools, cleanMimeType)
+{
+  EXPECT_EQ(cleanMimeType("IMAGE/JPEG"), "image/jpeg");
+  EXPECT_EQ(cleanMimeType("text/html;charset=utf-8"), "text/html");
+}
+
 TEST(CommonTools, decodeUrl)
 {
   std::string src = "%00";
